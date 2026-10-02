@@ -2,8 +2,15 @@
 
 import { Button } from "@repo/ui/components/ui/button";
 import { toast } from "@repo/ui/components/ui/toast";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
+  const router = useRouter();
+
+  const handleRouteToAdmin = () => {
+    router.push("http://localhost:3001");
+  };
+
   const showtodo = () => {
     const id = toast.add({
       title: "Hello",
@@ -20,11 +27,14 @@ export default function Home() {
   };
   return (
     <>
-      <h1 className="text-3xl font-bold"> this is WEB page </h1>
+      <h1 className="text-3xl font-bold text-orange-500"> this is WEB page </h1>
       <p>go to the localhost:3001 for teh admin page </p>
       <div className="mt-4">
         <Button variant="destructive" size="xs" onClick={showtodo}>
           See TOAST
+        </Button>
+        <Button variant="secondary" onClick={handleRouteToAdmin}>
+          Open admin
         </Button>
       </div>
     </>
