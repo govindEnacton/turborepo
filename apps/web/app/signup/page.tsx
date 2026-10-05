@@ -1,14 +1,11 @@
-import { RouteButton } from "@repo/components";
-export default function Login() {
+import { RouteButton, SignupForm } from "@repo/components";
+
+export default function Signup() {
   return (
-    <>
-      <div>hello brother this is signup page of web app</div>
-      <p>
-      Already have an account ?
-        <RouteButton navigate="/login" variant="default">
-          login 
-        </RouteButton>
-      </p>
-    </>
+    <div className="flex min-h-svh items-center justify-center px-4 py-10">
+      <div className="flex w-full max-w-sm flex-col gap-4">
+        <SignupForm />
+      </div>
+    </div>
   );
 }
