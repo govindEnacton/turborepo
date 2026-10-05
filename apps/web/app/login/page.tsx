@@ -28,12 +28,22 @@ export default function Login() {
     setError(null);
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
       if (error) {
         setError(error.message);
+        return;
+      }
+      const { data: profileRow } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", data.user.id)
+        .maybeSingle();
+      if ((profileRow as { role?: string } | null)?.role !== "user") {
+        await supabase.auth.signOut();
+        setError("Not authorized: user account required");
         return;
       }
       router.push("/dashboard");
