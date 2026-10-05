@@ -11,12 +11,14 @@
     "check-types": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@repo/components": "*",
+    "@repo/db": "*",
     "@repo/ui": "*",
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.117.2",
     "next": "16.3.4",
     "react": "19.2.8",
-    "react-dom": "19.2.8",
-    "@repo/db": "*",
-    "@repo/components" :"*"
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
     "@repo/eslint-config": "*",
