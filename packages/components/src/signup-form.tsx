@@ -12,7 +12,11 @@ import { Input } from "@repo/ui/components/ui/input";
 import { Label } from "@repo/ui/components/ui/label";
 import { cn } from "@repo/ui/lib/utils";
 
-export function SignupForm({ className, ...props }: React.ComponentProps<"div">) {
+interface SignupFormProps extends React.ComponentProps<"div"> {
+  role?: "user" | "admin";
+}
+
+export function SignupForm({ role = "user", className, ...props }: SignupFormProps) {
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
@@ -40,15 +44,13 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"div">)
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="role">Role</Label>
-                <select
+                <Input
                   id="role"
                   name="role"
-                  defaultValue="user"
-                  className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                >
-                  <option value="user">User</option>
-                  <option value="admin">Admin</option>
-                </select>
+                  value={role}
+                  readOnly
+                  className="capitalize"
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="password">Password</Label>
