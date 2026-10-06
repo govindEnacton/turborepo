@@ -44,12 +44,17 @@ export default function Signup() {
         return;
       }
       if (data.user) {
-        // Best effort: mirror the auth user into the profiles table.
-        await supabase.from("profiles").insert({
+        // Mirror the auth user into the profiles table. This must succeed,
+        // otherwise every later login fails the role check.
+        const { error: profileError } = await supabase.from("profiles").insert({
           id: data.user.id,
           email,
           role,
         });
+        if (profileError) {
+          setError(`Account created but profile save failed: ${profileError.message}`);
+          return;
+        }
       }
       router.push("/dashboard");
     } catch (err) {

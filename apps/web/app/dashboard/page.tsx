@@ -8,6 +8,14 @@ import { Button } from "@repo/ui/components/ui/button";
 
 import { createClient } from "@/lib/supabase/client";
 
+interface Task {
+  id: string;
+  title: string;
+  description: string | null;
+  status: string;
+  created_at?: string;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [status, setStatus] = useState<
@@ -16,6 +24,8 @@ export default function DashboardPage() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasksLoading, setTasksLoading] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -38,6 +48,16 @@ export default function DashboardPage() {
         return;
       }
       setStatus("authed");
+      setTasksLoading(true);
+      // RLS limits rows to the logged-in user's own tasks.
+      const { data: taskRows, error: tasksError } = await supabase
+        .from("tasks")
+        .select("id, title, description, status, created_at")
+        .order("created_at", { ascending: false });
+      if (!tasksError) {
+        setTasks((taskRows as Task[] | null) ?? []);
+      }
+      setTasksLoading(false);
     }
     void load();
   }, []);
@@ -68,17 +88,25 @@ export default function DashboardPage() {
       return;
     }
 
-    const { error } = await supabase.from("tasks").insert({
-      user_id: user.id,
-      title,
-      description,
-      status: "todo",
-    });
+    const { data: newRows, error } = await supabase
+      .from("tasks")
+      .insert({
+        user_id: user.id,
+        title,
+        description,
+        status: "todo",
+      })
+      .select("id, title, description, status, created_at");
 
     if (error) {
       console.error(error);
       alert(error.message);
       return;
+    }
+
+    const newTask = (newRows as Task[] | null)?.[0];
+    if (newTask) {
+      setTasks((prev) => [newTask, ...prev]);
     }
 
     setTitle("");
@@ -158,6 +186,40 @@ export default function DashboardPage() {
             {loggingOut ? "Logging out..." : "Logout"}
           </Button>
         </div>
+      </div>
+
+      <div className="mt-10 max-w-md">
+        <h2 className="text-xl font-semibold">Your Tasks</h2>
+        {tasksLoading ? (
+          <p className="mt-4 text-sm text-muted-foreground">
+            Loading tasks...
+          </p>
+        ) : tasks.length === 0 ? (
+          <p className="mt-4 text-sm text-muted-foreground">
+            No tasks yet. Create your first one above.
+          </p>
+        ) : (
+          <ul className="mt-4 flex flex-col gap-3">
+            {tasks.map((task) => (
+              <li
+                key={task.id}
+                className="rounded-xl border bg-card p-4 text-card-foreground shadow-sm"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-medium">{task.title}</p>
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                    {task.status}
+                  </span>
+                </div>
+                {task.description ? (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {task.description}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </main>
   );
