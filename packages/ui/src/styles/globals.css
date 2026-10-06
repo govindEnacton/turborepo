@@ -4,6 +4,7 @@
 
 /* Include shared components even when an app builds from its own directory. */
 @source "../";
+@source "../../../components/src";
 
 @theme inline {
   --font-sans: var(--font-geist-sans);

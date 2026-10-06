@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 
-import { RouteButton } from "@repo/components";
+import { Navbar, RouteButton } from "@repo/components";
 import { Button } from "@repo/ui/components/ui/button";
 
 import { createClient } from "@/lib/supabase/client";
@@ -16,6 +16,16 @@ interface Profile {
   created_at?: string;
 }
 
+interface Task {
+  id: string;
+  user_id: string;
+  title: string;
+  description: string | null;
+  status: string;
+  created_at: string;
+  profiles: { email: string } | null;
+}
+
 export default function AdminDashboard() {
   const router = useRouter();
   const [status, setStatus] = useState<
@@ -24,6 +34,9 @@ export default function AdminDashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasksLoading, setTasksLoading] = useState(false);
+  const [tasksError, setTasksError] = useState<string | null>(null);
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -62,6 +75,34 @@ export default function AdminDashboard() {
       setUser(data.user);
       setProfile(typedProfile);
       setStatus("authed");
+      setTasksLoading(true);
+      try {
+        const allTasks: Task[] = [];
+        // The admin SELECT policy allows every user's tasks and profile email.
+        for (let offset = 0; ; offset += 1000) {
+          const { data: rows, error } = await supabase
+            .from("tasks")
+            .select(
+              "id, user_id, title, description, status, created_at, profiles(email)",
+            )
+            .order("created_at", { ascending: false })
+            .order("id", { ascending: false })
+            .range(offset, offset + 999)
+            .returns<Task[]>();
+          if (error) throw new Error(error.message);
+          allTasks.push(...(rows ?? []));
+          if (!rows || rows.length < 1000) break;
+        }
+        setTasks(allTasks);
+      } catch (error) {
+        setTasksError(
+          error instanceof Error
+            ? error.message
+            : "Could not load tasks. Please refresh and try again.",
+        );
+      } finally {
+        setTasksLoading(false);
+      }
     }
     void load();
   }, []);
@@ -106,43 +147,68 @@ export default function AdminDashboard() {
     );
   }
 
-  const credentials = [
-    { label: "ID", value: user.id },
-    { label: "Email", value: user.email ?? "-" },
-    { label: "Role", value: profile?.role ?? "-" },
-    { label: "Created at", value: user.created_at },
-    { label: "Last sign in", value: user.last_sign_in_at ?? "-" },
-    {
-      label: "Provider",
-      value: String(user.app_metadata?.["provider"] ?? "-"),
-    },
-  ];
-
   return (
-    <div className="flex min-h-svh items-center justify-center px-4 py-10">
-      <div className="flex w-full max-w-md flex-col gap-6">
-        <h1 className="text-center text-3xl font-bold">Admin logged in</h1>
-        <dl className="flex flex-col gap-3 rounded-xl border bg-card p-6 text-card-foreground shadow-sm">
-          {credentials.map((item) => (
-            <div key={item.label} className="flex flex-col gap-1">
-              <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {item.label}
-              </dt>
-              <dd className="break-all text-sm font-medium">{item.value}</dd>
+    <main className="min-h-svh bg-muted/30 px-4 py-6 sm:px-8">
+      <div className="mx-auto max-w-6xl">
+        <Navbar className="mb-8 flex items-center justify-between gap-4 rounded-2xl border px-5 py-4 shadow-sm bg-gray-800">
+          <div className="min-w-0">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Admin workspace</p>
+            <p className="mt-1 break-all text-sm font-medium">{profile?.email ?? user.email}</p>
+          </div>
+          <Button variant="destructive" onClick={handleLogout} disabled={loggingOut}>
+            {loggingOut ? "Logging out..." : "Logout"}
+          </Button>
+        </Navbar>
+        <header className="mb-8">
+          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">All Tasks</h1>
+          <p className="mt-2 text-muted-foreground">An overview of tasks created by every user.</p>
+        </header>
+        <section aria-labelledby="all-tasks" className="overflow-hidden rounded-2xl border bg-card text-card-foreground shadow-sm">
+          <div className="flex items-center justify-between gap-3 border-b px-6 py-5">
+            <h2 id="all-tasks" className="text-lg font-semibold">Task directory</h2>
+            {!tasksLoading && !tasksError ? <span className="rounded-full bg-secondary px-3 py-1 text-sm text-secondary-foreground">{tasks.length} total</span> : null}
+          </div>
+          {tasksLoading ? (
+            <p role="status" className="p-8 text-sm text-muted-foreground">Loading tasks...</p>
+          ) : tasksError ? (
+            <p role="alert" className="p-8 text-sm text-destructive">{tasksError}</p>
+          ) : tasks.length === 0 ? (
+            <div className="px-6 py-14 text-center">
+              <h3 className="font-semibold">No tasks yet</h3>
+              <p className="mt-2 text-sm text-muted-foreground">Tasks will appear here when users create them.</p>
             </div>
-          ))}
-        </dl>
-        <pre className="overflow-auto rounded-xl border bg-muted p-4 text-xs">
-          {JSON.stringify({ user, profile }, null, 2)}
-        </pre>
-        <Button
-          variant="outline"
-          onClick={handleLogout}
-          disabled={loggingOut}
-        >
-          {loggingOut ? "Logging out..." : "Logout"}
-        </Button>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <caption className="sr-only">All users&apos; tasks, newest first</caption>
+                <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th scope="col" className="px-6 py-4 font-medium">Task</th>
+                    <th scope="col" className="px-6 py-4 font-medium">Created by</th>
+                    <th scope="col" className="px-6 py-4 font-medium">Status</th>
+                    <th scope="col" className="px-6 py-4 font-medium">Created</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tasks.map((task) => (
+                    <tr key={task.id} className="border-t align-top transition-colors hover:bg-muted/30">
+                      <td className="min-w-60 max-w-md px-6 py-5">
+                        <p className="break-words font-semibold">{task.title}</p>
+                        {task.description ? <p className="mt-2 break-words whitespace-pre-wrap leading-relaxed text-muted-foreground">{task.description}</p> : null}
+                      </td>
+                      <td className="max-w-64 break-all px-6 py-5 text-muted-foreground">{task.profiles?.email ?? task.user_id}</td>
+                      <td className="px-6 py-5">
+                        <span className="inline-block whitespace-nowrap rounded-full bg-secondary px-2.5 py-1 text-xs font-medium capitalize text-secondary-foreground">{task.status.replaceAll("_", " ")}</span>
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-5 text-muted-foreground">{new Date(task.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       </div>
-    </div>
+    </main>
   );
 }
